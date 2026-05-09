@@ -1,0 +1,12 @@
+cat > .gitignore << 'EOF'
+target/
+*.class
+*.jar
+.idea/
+*.iml
+.DS_Store
+frontend/node_modules/
+frontend/build/
+frontend/.env
+*.log
+EOF

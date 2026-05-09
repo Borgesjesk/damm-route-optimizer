@@ -1,0 +1,125 @@
+{
+  "info": {
+    "name": "DammRoute API",
+    "description": "Complete API collection for DammRoute hackathon project",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "apiKey", "value": "dammroute-hackathon-2026" }
+  ],
+  "item": [
+    {
+      "name": "🟢 Health (no auth)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "📊 Dashboard Stats",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/dashboard/stats",
+        "header": [{ "key": "X-API-Key", "value": "{{apiKey}}" }]
+      }
+    },
+    {
+      "name": "👥 Get All Clients",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/clients",
+        "header": [{ "key": "X-API-Key", "value": "{{apiKey}}" }]
+      }
+    },
+    {
+      "name": "🚛 Get All Carriers",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/carriers",
+        "header": [{ "key": "X-API-Key", "value": "{{apiKey}}" }]
+      }
+    },
+    {
+      "name": "✅ Optimise Route (TRUSTED carrier)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/routes/optimise",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"carrierId\": 1,\n  \"clientIds\": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n}"
+        }
+      }
+    },
+    {
+      "name": "🔴 Optimise Route (BLOCKED carrier - should fail)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/routes/optimise",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"carrierId\": 3,\n  \"clientIds\": [1, 2, 3]\n}"
+        }
+      }
+    },
+    {
+      "name": "🔑 Unauthorized (wrong API key)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/clients",
+        "header": [{ "key": "X-API-Key", "value": "wrong-key" }]
+      }
+    },
+    {
+      "name": "📦 Get Route by ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/routes/1",
+        "header": [{ "key": "X-API-Key", "value": "{{apiKey}}" }]
+      }
+    },
+    {
+      "name": "✓ Complete Stop",
+      "request": {
+        "method": "PUT",
+        "url": "{{baseUrl}}/api/routes/1/stops/1/complete",
+        "header": [{ "key": "X-API-Key", "value": "{{apiKey}}" }]
+      }
+    },
+    {
+      "name": "➕ Add New Carrier",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/carriers",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Nova Logistics SL\",\n  \"licenseNumber\": \"B5555555\",\n  \"documentVerified\": true,\n  \"disputeCount\": 0\n}"
+        }
+      }
+    },
+    {
+      "name": "❌ Validation Error (empty body)",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/routes/optimise",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{}" }
+      }
+    }
+  ]
+}

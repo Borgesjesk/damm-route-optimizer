@@ -1,27 +1,17 @@
 package com.dammroute.service;
 
 import com.dammroute.entity.Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-/**
- * Nearest-neighbour greedy algorithm with time window awareness.
- *
- * Algorithm:
- * 1. Sort all stops by delivery window start time
- * 2. From warehouse, greedily pick nearest unvisited stop
- *    that is within the same time window group
- * 3. Move to that stop and repeat
- *
- * Good enough for demo with <20 stops.
- * Production: replace with OR-Tools VRP solver.
- */
 @Service
 public class RouteOptimizerService {
+
+    private static final Logger log = LoggerFactory.getLogger(RouteOptimizerService.class);
 
     @Value("${app.warehouse.latitude}")
     private double warehouseLat;
@@ -39,32 +29,69 @@ public class RouteOptimizerService {
         if (clients == null || clients.isEmpty()) return List.of();
         if (clients.size() == 1) return new ArrayList<>(clients);
 
+        // Try Python optimizer first — math guys algorithm
+        try {
+            return callPythonOptimizer(clients);
+        } catch (Exception e) {
+            log.warn("Python optimizer failed, using greedy fallback: {}", e.getMessage());
+            return fallbackGreedy(clients);
+        }
+    }
+
+    private List<Client> callPythonOptimizer(List<Client> clients) throws Exception {
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < clients.size(); i++) {
+            Client c = clients.get(i);
+            json.append(String.format("{\"id\":%d,\"lat\":%.6f,\"lng\":%.6f,\"name\":\"%s\"}",
+                c.getId(), c.getLatitude(), c.getLongitude(),
+                c.getName().replace("\"", "\\\"")));
+            if (i < clients.size() - 1) json.append(",");
+        }
+        json.append("]");
+
+        ProcessBuilder pb = new ProcessBuilder("python3", "optimizer.py");
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        process.getOutputStream().write(json.toString().getBytes());
+        process.getOutputStream().close();
+
+        String output = new String(process.getInputStream().readAllBytes()).trim();
+        process.waitFor();
+
+        String cleaned = output.replace("[", "").replace("]", "").trim();
+        if (cleaned.isEmpty()) return fallbackGreedy(clients);
+
+        Map<Long, Client> clientMap = clients.stream()
+                .collect(Collectors.toMap(Client::getId, c -> c));
+
+        List<Client> ordered = new ArrayList<>();
+        for (String part : cleaned.split(",")) {
+            Long id = Long.parseLong(part.trim());
+            if (clientMap.containsKey(id)) ordered.add(clientMap.get(id));
+        }
+        return ordered.isEmpty() ? fallbackGreedy(clients) : ordered;
+    }
+
+    private List<Client> fallbackGreedy(List<Client> clients) {
         List<Client> unvisited = new ArrayList<>(clients);
         List<Client> route = new ArrayList<>();
-
-        // Sort by delivery window start — respect time constraints first
-        unvisited.sort(Comparator.comparing(Client::getDeliveryWindowStart));
-
-        double currentLat = warehouseLat;
-        double currentLng = warehouseLng;
-
+        unvisited.sort(Comparator.comparing(Client::getDeliveryWindowStart,
+                Comparator.nullsLast(Comparator.naturalOrder())));
+        double lat = warehouseLat, lng = warehouseLng;
         while (!unvisited.isEmpty()) {
-            Client nearest = findNearest(unvisited, currentLat, currentLng);
+            Client nearest = findNearest(unvisited, lat, lng);
             route.add(nearest);
             unvisited.remove(nearest);
-            currentLat = nearest.getLatitude();
-            currentLng = nearest.getLongitude();
+            lat = nearest.getLatitude();
+            lng = nearest.getLongitude();
         }
-
         return route;
     }
 
     private Client findNearest(List<Client> clients, double lat, double lng) {
         return clients.stream()
                 .min(Comparator.comparingDouble(c ->
-                        co2Calculator.haversine(lat, lng,
-                                                c.getLatitude(), c.getLongitude())))
-                .orElseThrow(() ->
-                        new IllegalStateException("Client list must not be empty"));
+                        co2Calculator.haversine(lat, lng, c.getLatitude(), c.getLongitude())))
+                .orElseThrow();
     }
 }

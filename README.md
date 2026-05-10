@@ -138,18 +138,17 @@ npm start
 ## 🧠 Algorithm: Parking-First Optimization
 
 ```
-1. INPUT: List of clients with coordinates + nearestLoadingBay
+1. INPUT: List of clients with coordinates + orders + nearestLoadingBay
 
 2. CLUSTER: Group clients by shared parking zone (nearestLoadingBay)
    Example: 5 clients on C/ Gran → 1 parking cluster
 
-3. ORDER CLUSTERS: Greedy nearest-neighbor between cluster centers
-   Starting from DDI Mollet warehouse → nearest cluster → next → ...
+3. GROUP PARKING ZONES: Grops parking zones in groups of 1 truck
 
-4. WITHIN CLUSTER: Sort by delivery time window
-   Earliest window first within each parking zone
+4. ORDER CLUSTERS: Each of these grupos gets a optimazed route, taking in acaount distance, schedules, truck distribution and warehouse optimization.
+Starting from DDI Mollet warehouse → nearest cluster → next → ...
 
-5. OUTPUT: Ordered list of stops, grouped by parking zone
+5. OUTPUT: Ordered list of stops, grouped by parking zone and optimazed with truck besides best truck distribution.
    Driver parks once per zone, delivers on foot
 ```
 

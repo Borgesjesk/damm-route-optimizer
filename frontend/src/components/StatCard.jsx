@@ -1,26 +1,78 @@
-export function StatCard({ label, value, unit, color = '#f5c842', icon }) {
-  return (
-    <div style={{
-      background: '#1a1a1a',
-      borderLeft: `3px solid ${color}`,
-      padding: '20px 24px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-    }}>
-      <span style={{ fontSize: 11, color: '#666', letterSpacing: 2, textTransform: 'uppercase' }}>
-        {icon} {label}
-      </span>
-      <span style={{
-        fontFamily: 'Courier New',
-        fontSize: 32,
-        fontWeight: 700,
-        color,
-        lineHeight: 1,
-      }}>
-        {value}
-        {unit && <span style={{ fontSize: 14, color: '#888', marginLeft: 6 }}>{unit}</span>}
-      </span>
+const StatCard = ({ label, value, unit = '', accent = '#f5c842', icon = '' }) => (
+  <div
+    style={{
+      background: '#111',
+      border: '1px solid #1e1e1e',
+      borderTop: `2px solid ${accent}`,
+      borderRadius: '6px',
+      padding: '11px 14px',
+      flex: 1,
+      minWidth: 0,
+      position: 'relative',
+      overflow: 'hidden',
+    }}
+  >
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: `radial-gradient(ellipse at top left, ${accent}08 0%, transparent 60%)`,
+        pointerEvents: 'none',
+      }}
+    />
+    <div
+      style={{
+        fontSize: '8px',
+        color: '#444',
+        letterSpacing: '2px',
+        textTransform: 'uppercase',
+        marginBottom: '6px',
+        fontFamily: 'monospace',
+      }}
+    >
+      {label}
     </div>
-  );
-}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+      <span
+        style={{
+          fontSize: '26px',
+          fontWeight: '800',
+          fontFamily: "'Syne', sans-serif",
+          color: '#fff',
+          lineHeight: 1,
+          textShadow: `0 0 20px ${accent}40`,
+        }}
+      >
+        {value ?? '—'}
+      </span>
+      {unit && (
+        <span
+          style={{
+            fontSize: '11px',
+            color: accent,
+            fontWeight: '700',
+            fontFamily: 'monospace',
+          }}
+        >
+          {unit}
+        </span>
+      )}
+    </div>
+    {icon && (
+      <div
+        style={{
+          position: 'absolute',
+          right: '10px',
+          bottom: '6px',
+          fontSize: '20px',
+          opacity: 0.07,
+          userSelect: 'none',
+        }}
+      >
+        {icon}
+      </div>
+    )}
+  </div>
+);
+
+export default StatCard;

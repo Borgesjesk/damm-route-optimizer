@@ -10,3 +10,5 @@ frontend/build/
 frontend/.env
 *.log
 EOF
+EMERGENCY_CHEATSHEET.md
+GIT_SETUP.sh

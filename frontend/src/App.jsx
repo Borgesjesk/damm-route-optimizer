@@ -1,417 +1,201 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RouteMap } from './components/RouteMap';
-import { StatCard } from './components/StatCard';
-import { CarrierCard } from './components/CarrierCard';
-import { api } from './api';
+import * as api from './api';
+import RouteMap from './components/RouteMap';
+import CarrierCard from './components/CarrierCard';
+import TruckLoadingPlan from './components/TruckLoadingPlan';
+import StatCard from './components/StatCard';
 
-// ── STYLES ─────────────────────────────────────────────────────────────
-const S = {
-  app: {
-    display: 'grid',
-    gridTemplateRows: 'auto 1fr',
-    height: '100vh',
-    background: '#0a0a0a',
-    color: '#f5f0e8',
-    fontFamily: '"Courier New", monospace',
-  },
-  header: {
-    background: '#111',
-    borderBottom: '1px solid #222',
-    padding: '0 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-  },
-  logo: {
-    fontFamily: '"Courier New", monospace',
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: -1,
-  },
-  body: {
-    display: 'grid',
-    gridTemplateColumns: '340px 1fr',
-    overflow: 'hidden',
-  },
-  sidebar: {
-    background: '#111',
-    borderRight: '1px solid #1a1a1a',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 0,
-  },
-  section: {
-    borderBottom: '1px solid #1a1a1a',
-    padding: '16px',
-  },
-  sectionTitle: {
-    fontSize: 10,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    color: '#f5c842',
-    marginBottom: 12,
-  },
-  mapWrapper: {
-    position: 'relative',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  statsBar: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 1,
-    background: '#0a0a0a',
-  },
-  btn: (variant = 'primary', disabled = false) => ({
-    padding: '10px 16px',
-    background: disabled ? '#1a1a1a' : variant === 'primary' ? '#e2001a' : '#1a1a2a',
-    color: disabled ? '#555' : '#fff',
-    border: 'none',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    fontSize: 12,
-    fontFamily: '"Courier New", monospace',
-    fontWeight: 700,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    width: '100%',
-    transition: 'background 0.2s',
-  }),
-  alert: (type = 'error') => ({
-    padding: '10px 14px',
-    background: type === 'error' ? '#1a0000' : '#001a00',
-    borderLeft: `3px solid ${type === 'error' ? '#e63329' : '#1db954'}`,
-    fontSize: 12,
-    color: type === 'error' ? '#ff9a9a' : '#9af0b8',
-    margin: '8px 0',
-  }),
-  stopRow: (status) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '8px 12px',
-    background: '#1a1a1a',
-    marginBottom: 2,
-    fontSize: 12,
-    borderLeft: `2px solid ${
-      status === 'DELIVERED' ? '#1db954' :
-      status === 'FAILED'    ? '#e63329' : '#f5c842'
-    }`,
-  }),
-};
+const SectionLabel = ({ children, right }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8px', color: '#333', letterSpacing: '2.5px', textTransform: 'uppercase', marginTop: '18px', marginBottom: '10px', paddingBottom: '7px', borderBottom: '1px solid #161616' }}>
+    <span>{children}</span>
+    {right}
+  </div>
+);
 
-// ── APP ────────────────────────────────────────────────────────────────
-export default function App() {
-  const [clients,         setClients]         = useState([]);
-  const [carriers,        setCarriers]         = useState([]);
-  const [dashboard,       setDashboard]        = useState(null);
-  const [selectedCarrier, setSelectedCarrier]  = useState(null);
-  const [selectedClients, setSelectedClients]  = useState([]);
-  const [currentRoute,    setCurrentRoute]     = useState(null);
-  const [loading,         setLoading]          = useState(false);
-  const [error,           setError]            = useState('');
-  const [success,         setSuccess]          = useState('');
-  const [apiStatus,       setApiStatus]        = useState('checking');
+const ClientRow = ({ client, checked, onToggle }) => (
+  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', padding: '8px 10px', background: checked ? '#141414' : '#0f0f0f', border: `1px solid ${checked ? '#e2001a33' : '#161616'}`, borderRadius: '6px', cursor: 'pointer', marginBottom: '4px', transition: 'border-color 0.1s, background 0.1s' }}>
+    <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `1.5px solid ${checked ? '#e2001a' : '#2a2a2a'}`, background: checked ? '#e2001a' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'background 0.1s, border-color 0.1s' }}>
+      {checked && <span style={{ color: '#fff', fontSize: '9px', lineHeight: 1, fontWeight: '800' }}>✓</span>}
+    </div>
+    <input type="checkbox" checked={checked} onChange={onToggle} style={{ display: 'none' }} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: '11px', fontWeight: '600', color: checked ? '#ddd' : '#777', marginBottom: '2px', fontFamily: "'Syne', sans-serif", transition: 'color 0.1s' }}>{client.name}</div>
+      <div style={{ fontSize: '9px', color: '#2e2e2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.address}</div>
+      {client.timeWindow && <div style={{ fontSize: '8px', color: '#2a2a2a', marginTop: '2px' }}>⏱ {client.timeWindow}</div>}
+    </div>
+  </label>
+);
 
-  // ── Load initial data ──────────────────────────────────────────────
-  const loadAll = useCallback(async () => {
-    try {
-      await api.health();
-      setApiStatus('online');
-      const [c, car, dash] = await Promise.all([
-        api.getClients(),
-        api.getCarriers(),
-        api.getDashboard(),
-      ]);
-      setClients(c);
-      setCarriers(car);
-      setDashboard(dash);
-    } catch (e) {
-      setApiStatus('offline');
-      setError('Cannot connect to DammRoute API. Make sure Spring Boot is running on :8080');
-    }
-  }, []);
+const StopRow = ({ stop, index, clientById, onConfirm, onDamage }) => {
+  const [busy, setBusy] = useState(false);
+  const client = clientById[stop.clientId] ?? {};
+  const delivered = stop.status === 'DELIVERED';
+  const name = client.name ?? stop.clientName ?? `Stop ${index + 1}`;
+  const address = client.address ?? stop.address ?? '';
+  const tw = stop.timeWindow ?? client.timeWindow ?? '';
+  const sid = stop.stopId ?? stop.id;
 
-  useEffect(() => { loadAll(); }, [loadAll]);
-
-  // ── Toggle client selection ────────────────────────────────────────
-  const toggleClient = (client) => {
-    setSelectedClients(prev =>
-      prev.find(c => c.id === client.id)
-        ? prev.filter(c => c.id !== client.id)
-        : [...prev, client]
-    );
+  const handleConfirm = async () => {
+    setBusy(true);
+    await onConfirm(sid);
+    setBusy(false);
   };
 
-  const selectAllClients = () => {
-    setSelectedClients(selectedClients.length === clients.length ? [] : [...clients]);
-  };
-
-  // ── Optimise route ─────────────────────────────────────────────────
-  const optimiseRoute = async () => {
-    if (!selectedCarrier) { setError('Select a carrier first'); return; }
-    if (selectedClients.length === 0) { setError('Select at least one client'); return; }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const route = await api.optimiseRoute(
-        selectedCarrier.id,
-        selectedClients.map(c => c.id)
-      );
-      setCurrentRoute(route);
-      setSuccess(
-        `✅ Route optimised! CO₂ saved: ${route.co2SavedPercent}% ` +
-        `(${(route.baselineCo2Kg - route.optimisedCo2Kg).toFixed(1)}kg) ` +
-        `≈ ${route.treesEquivalent} trees`
-      );
-      await loadAll(); // refresh dashboard
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Mark stop delivered ────────────────────────────────────────────
-  const completeStop = async (stopId) => {
-    if (!currentRoute) return;
-    try {
-      const updated = await api.completeStop(currentRoute.routeId, stopId);
-      setCurrentRoute(updated);
-      await loadAll();
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
-  // ── CO2 bar visual ─────────────────────────────────────────────────
-  const Co2Bar = ({ baseline, optimised, savedPct }) => (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', marginBottom: 4 }}>
-        <span>Unoptimised: {baseline?.toFixed(1)}kg CO₂</span>
-        <span style={{ color: '#1db954' }}>Saved: {savedPct}%</span>
+  return (
+    <div style={{ background: delivered ? '#0b150e' : '#111', border: `1px solid ${delivered ? '#1db95428' : '#1a1a1a'}`, borderRadius: '6px', padding: '9px 10px', marginBottom: '5px' }}>
+      <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', marginBottom: delivered ? 0 : '8px' }}>
+        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: delivered ? '#1db954' : '#f5c842', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>{index + 1}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: delivered ? '#1db954' : '#ccc', fontFamily: "'Syne', sans-serif", marginBottom: '2px' }}>{name}</div>
+          {address && <div style={{ fontSize: '9px', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{address}</div>}
+          {tw && <div style={{ fontSize: '8px', color: '#2a2a2a', marginTop: '1px' }}>⏱ {tw}</div>}
+        </div>
+        {delivered && <div style={{ fontSize: '9px', color: '#1db954', fontWeight: '800', flexShrink: 0 }}>✓</div>}
       </div>
-      <div style={{ height: 8, background: '#0a0a0a', position: 'relative' }}>
-        <div style={{ height: '100%', width: '100%', background: '#e63329', opacity: 0.3 }} />
-        <div style={{
-          height: '100%',
-          width: `${100 - savedPct}%`,
-          background: '#1db954',
-          position: 'absolute', top: 0, left: 0,
-        }} />
-      </div>
-      <div style={{ fontSize: 10, color: '#1db954', marginTop: 4 }}>
-        Optimised: {optimised?.toFixed(1)}kg CO₂
-      </div>
+      {!delivered && (
+        <div style={{ display: 'flex', gap: '5px' }}>
+          <button onClick={handleConfirm} disabled={busy} style={{ flex: 1, padding: '5px 0', background: busy ? '#0b150e' : '#1db95415', border: '1px solid #1db95435', borderRadius: '4px', color: '#1db954', fontSize: '8px', cursor: busy ? 'default' : 'pointer', fontFamily: 'monospace', letterSpacing: '1px', fontWeight: '700', transition: 'background 0.15s' }}>{busy ? '···' : '✓ CONFIRM'}</button>
+          <button onClick={() => onDamage(sid)} style={{ padding: '5px 9px', background: '#e2001a0a', border: '1px solid #e2001a25', borderRadius: '4px', color: '#e2001a', fontSize: '8px', cursor: 'pointer', fontFamily: 'monospace', letterSpacing: '1px', transition: 'background 0.15s' }}>⚠ DMG</button>
+        </div>
+      )}
     </div>
   );
+};
 
-  // ── RENDER ─────────────────────────────────────────────────────────
+export default function App() {
+  const [apiStatus, setApiStatus] = useState('checking');
+  const [carriers, setCarriers] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [selectedClients, setSelectedClients] = useState([]);
+  const [route, setRoute] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(null);
+  const [warehouseSheet, setWarehouseSheet] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const [fraudBlocked, setFraudBlocked] = useState(false);
+  const [co2Banner, setCo2Banner] = useState(null);
+
+  useEffect(() => {
+    api.checkHealth().then((r) => setApiStatus(r.ok ? 'online' : 'offline')).catch(() => setApiStatus('offline'));
+    Promise.all([api.fetchCarriers().catch(() => []), api.fetchClients().catch(() => []), api.fetchDashboardStats().catch(() => null)]).then(([carr, cli, st]) => { setCarriers(carr); setClients(cli); setStats(st); setLoading(false); });
+  }, []);
+
+  const refreshStats = useCallback(() => { api.fetchDashboardStats().then(setStats).catch(() => {}); }, []);
+
+  const handleCarrierSelect = useCallback((carrier) => { setSelectedCarrier((prev) => (prev?.id === carrier.id ? null : carrier)); setFraudBlocked(false); setError(null); }, []);
+
+  const handleClientToggle = useCallback((id) => { setSelectedClients((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]); }, []);
+
+  const canGenerate = !!selectedCarrier && selectedClients.length > 0;
+
+  const handleGenerate = useCallback(async () => {
+    if (!canGenerate || generating) return;
+    setGenerating(true); setError(null); setFraudBlocked(false); setCo2Banner(null);
+    try {
+      const res = await api.optimiseRoute(selectedCarrier.id, selectedClients);
+      if (res.status === 403) { setFraudBlocked(true); return; }
+      if (!res.ok) { const body = await res.json().catch(() => ({})); setError(body.message ?? `Server error ${res.status}`); return; }
+
+      const routeData = await res.json();
+      routeData.id = routeData.routeId;
+      routeData.stops = routeData.stops.map(s => ({ ...s, id: s.stopId, lat: s.latitude, lng: s.longitude }));
+      setRoute(routeData);
+
+      if (routeData.co2SavedPercent != null) {
+        setCo2Banner(`Route optimised — ${routeData.co2SavedPercent}% less CO₂ vs. naive routing`);
+      } else {
+        setCo2Banner('Route successfully optimised.');
+      }
+
+      const [plan, sheet] = await Promise.all([
+        api.fetchLoadingPlan(routeData.id).catch(() => null),
+        api.fetchWarehouseSheet(routeData.id).catch(() => null),
+      ]);
+      setLoadingPlan(plan); setWarehouseSheet(sheet); refreshStats();
+    } catch (err) { setError(err.message); } finally { setGenerating(false); }
+  }, [canGenerate, generating, selectedCarrier, selectedClients, refreshStats]);
+
+  const handleConfirmDelivery = useCallback(async (stopId) => {
+    if (!route) return;
+    try { await api.confirmDelivery(route.id, stopId); const updated = await api.fetchRoute(route.id); setRoute(updated); refreshStats(); } catch (err) { console.error('confirmDelivery failed:', err); }
+  }, [route, refreshStats]);
+
+  const handleDamage = useCallback(async (stopId) => {
+    if (!route) return;
+    const notes = window.prompt('Describe the damage / incident:');
+    if (!notes?.trim()) return;
+    try { await api.reportDamage(route.id, stopId, { notes }); } catch (err) { console.error('reportDamage failed:', err); }
+  }, [route]);
+
+  const stops = route?.stops ?? [];
+  const clientById = Object.fromEntries(clients.map((c) => [c.id, c]));
+  const statusColor = { online: '#1db954', offline: '#e2001a', checking: '#f5c842' }[apiStatus];
+  const statusPulse = apiStatus === 'online' ? '0 0 8px #1db95460' : 'none';
+  const genBtnActive = canGenerate && !generating;
+
   return (
-    <div style={S.app}>
-
-      {/* HEADER */}
-      <header style={S.header}>
-        <div style={S.logo}>
-          <span style={{ color: '#e2001a' }}>Damm</span>Route
-          <span style={{ fontSize: 11, color: '#555', marginLeft: 12, fontWeight: 400 }}>
-            Smart Delivery Barcelona 2030
-          </span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#0a0a0a', color: '#fff', fontFamily: "'Courier New', Courier, monospace" }}>
+      <header style={{ height: '54px', background: '#0c0c0c', borderBottom: '1px solid #181818', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between', flexShrink: 0, zIndex: 1000 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+          <div style={{ width: '36px', height: '36px', background: '#e2001a', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Syne', sans-serif", fontWeight: '900', fontSize: '18px', color: '#fff', boxShadow: '0 0 20px #e2001a50', flexShrink: 0 }}>D</div>
+          <div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: '800', fontSize: '16px', letterSpacing: '0.5px', color: '#fff' }}>DammRoute</div>
+            <div style={{ fontSize: '8px', color: '#333', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Smart Logistics · InterhackBCN 2026</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{
-            fontSize: 10,
-            padding: '4px 10px',
-            background: apiStatus === 'online' ? '#001a00' : '#1a0000',
-            color: apiStatus === 'online' ? '#1db954' : '#e63329',
-            letterSpacing: 1,
-          }}>
-            ● API {apiStatus.toUpperCase()}
-          </span>
-          <span style={{ fontSize: 10, color: '#555' }}>🛡️ FraudSentinel Active</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {route && <div style={{ fontSize: '8px', color: '#555', letterSpacing: '1.5px', fontFamily: 'monospace', background: '#141414', border: '1px solid #222', borderRadius: '4px', padding: '4px 10px' }}>ROUTE {(route.id ?? '').toString().slice(-8).toUpperCase()}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, boxShadow: statusPulse }} />
+            <span style={{ fontSize: '9px', color: statusColor, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: '700' }}>API {apiStatus}</span>
+          </div>
         </div>
       </header>
 
-      <div style={S.body}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <aside style={{ width: '340px', flexShrink: 0, background: '#090909', borderRight: '1px solid #151515', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 24px' }}>
+            <SectionLabel>Carrier Selection</SectionLabel>
+            {loading ? <div style={{ color: '#2a2a2a', fontSize: '11px' }}>Loading carriers…</div> : carriers.length === 0 ? <div style={{ color: '#2a2a2a', fontSize: '11px' }}>No carriers found.</div> : carriers.map((c) => <CarrierCard key={c.id} carrier={c} selected={selectedCarrier?.id === c.id} onSelect={handleCarrierSelect} />)}
 
-        {/* SIDEBAR */}
-        <aside style={S.sidebar}>
+            <SectionLabel right={<div style={{ display: 'flex', gap: '10px' }}><button onClick={() => setSelectedClients(clients.map((c) => c.id))} style={{ background: 'none', border: 'none', color: '#333', fontSize: '8px', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', padding: 0 }}>All</button><button onClick={() => setSelectedClients([])} style={{ background: 'none', border: 'none', color: '#333', fontSize: '8px', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', padding: 0 }}>None</button></div>}>Delivery Points{clients.length > 0 ? ` (${selectedClients.length}/${clients.length})` : ''}</SectionLabel>
+            {loading ? <div style={{ color: '#2a2a2a', fontSize: '11px' }}>Loading clients…</div> : clients.length === 0 ? <div style={{ color: '#2a2a2a', fontSize: '11px' }}>No clients found.</div> : clients.map((c) => <ClientRow key={c.id} client={c} checked={selectedClients.includes(c.id)} onToggle={() => handleClientToggle(c.id)} />)}
 
-          {/* STEP 1 — CARRIERS */}
-          <div style={S.section}>
-            <div style={S.sectionTitle}>Step 1 — Select Carrier</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {carriers.map(carrier => (
-                <CarrierCard
-                  key={carrier.id}
-                  carrier={carrier}
-                  selected={selectedCarrier?.id === carrier.id}
-                  onSelect={setSelectedCarrier}
-                />
-              ))}
-            </div>
+            <button onClick={handleGenerate} disabled={!genBtnActive} style={{ width: '100%', marginTop: '14px', padding: '13px', background: genBtnActive ? '#e2001a' : '#141414', color: genBtnActive ? '#fff' : '#2a2a2a', border: `1px solid ${genBtnActive ? '#e2001a' : '#1e1e1e'}`, borderRadius: '7px', fontSize: '12px', fontWeight: '800', fontFamily: "'Syne', sans-serif", letterSpacing: '1.5px', cursor: genBtnActive ? 'pointer' : 'not-allowed', transition: 'all 0.2s ease', boxShadow: genBtnActive ? '0 0 20px #e2001a35' : 'none', textTransform: 'uppercase' }}>{generating ? '⚙ OPTIMISING…' : '⚡ GENERATE ROUTE'}</button>
+            {!canGenerate && !generating && <div style={{ fontSize: '8px', color: '#222', textAlign: 'center', marginTop: '7px', letterSpacing: '1px' }}>{!selectedCarrier ? 'Select a carrier first' : 'Select at least one client'}</div>}
+
+            {fraudBlocked && <div style={{ marginTop: '12px', background: '#12060608', border: '1px solid #e2001a35', borderLeft: '3px solid #e2001a', borderRadius: '0 6px 6px 0', padding: '11px 13px' }}><div style={{ fontFamily: "'Syne', sans-serif", fontWeight: '800', fontSize: '11px', color: '#e2001a', marginBottom: '5px', letterSpacing: '0.5px' }}>⚠ FraudSentinel · Carrier Blocked</div><div style={{ fontSize: '10px', color: '#e2001a70', lineHeight: 1.55 }}>This carrier has an active FraudSentinel flag and cannot be assigned new routes. Select a <span style={{ color: '#1db954' }}>TRUSTED</span> carrier.</div></div>}
+            {error && <div style={{ marginTop: '12px', background: '#110a0a', border: '1px solid #e2001a20', borderRadius: '6px', padding: '9px 12px', fontSize: '10px', color: '#e2001a80' }}>Error: {error}</div>}
+            {co2Banner && <div style={{ marginTop: '12px', background: '#091309', border: '1px solid #1db95430', borderLeft: '3px solid #1db954', borderRadius: '0 6px 6px 0', padding: '9px 13px', fontSize: '11px', color: '#1db954', fontWeight: '600', lineHeight: 1.5 }}>🌱 {co2Banner}</div>}
+
+            {stops.length > 0 && (<><SectionLabel>Route Stops ({stops.length})</SectionLabel>{stops.map((stop, i) => <StopRow key={stop.stopId ?? stop.id ?? i} stop={stop} index={i} clientById={clientById} onConfirm={handleConfirmDelivery} onDamage={handleDamage} />)}</>)}
+            {(loadingPlan || warehouseSheet) && <TruckLoadingPlan loadingPlan={loadingPlan} warehouseSheet={warehouseSheet} />}
           </div>
-
-          {/* STEP 2 — CLIENTS */}
-          <div style={S.section}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={S.sectionTitle}>Step 2 — Select Stops</div>
-              <button
-                style={{ ...S.btn('secondary'), width: 'auto', padding: '4px 10px', fontSize: 10 }}
-                onClick={selectAllClients}
-              >
-                {selectedClients.length === clients.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {clients.map(client => {
-                const isSelected = selectedClients.find(c => c.id === client.id);
-                return (
-                  <div
-                    key={client.id}
-                    onClick={() => toggleClient(client)}
-                    style={{
-                      padding: '8px 12px',
-                      background: isSelected ? '#1a1a00' : '#1a1a1a',
-                      border: `1px solid ${isSelected ? '#f5c842' : '#222'}`,
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: isSelected ? '#f5c842' : '#bbb' }}>
-                        {isSelected ? '☑' : '☐'} {client.name}
-                      </span>
-                      <span style={{
-                        fontSize: 10,
-                        color: client.parkingDifficulty === 'HIGH' ? '#e63329' :
-                               client.parkingDifficulty === 'MEDIUM' ? '#f5c842' : '#1db954',
-                      }}>
-                        🅿️ {client.parkingDifficulty}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
-                      ⏰ {client.deliveryWindowStart}–{client.deliveryWindowEnd}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* STEP 3 — OPTIMISE */}
-          <div style={S.section}>
-            <div style={S.sectionTitle}>Step 3 — Optimise</div>
-            {error && <div style={S.alert('error')}>{error}</div>}
-            {success && <div style={S.alert('success')}>{success}</div>}
-            <button
-              style={S.btn('primary', loading || !selectedCarrier || selectedClients.length === 0)}
-              onClick={optimiseRoute}
-              disabled={loading || !selectedCarrier || selectedClients.length === 0}
-            >
-              {loading ? '⏳ Calculating...' : '🚀 Generate Optimised Route'}
-            </button>
-            {currentRoute && (
-              <Co2Bar
-                baseline={currentRoute.baselineCo2Kg}
-                optimised={currentRoute.optimisedCo2Kg}
-                savedPct={currentRoute.co2SavedPercent}
-              />
-            )}
-          </div>
-
-          {/* ROUTE STOPS */}
-          {currentRoute && (
-            <div style={S.section}>
-              <div style={S.sectionTitle}>
-                Route #{currentRoute.routeId} — {currentRoute.carrierName}
-              </div>
-              {currentRoute.stops
-                .sort((a, b) => a.stopOrder - b.stopOrder)
-                .map(stop => (
-                  <div key={stop.stopId} style={S.stopRow(stop.status)}>
-                    <span style={{ color: '#f5c842', fontWeight: 700, minWidth: 20 }}>
-                      {stop.stopOrder}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#ddd' }}>{stop.clientName}</div>
-                      <div style={{ fontSize: 10, color: '#555' }}>
-                        ETA {stop.estimatedArrival} · {stop.parkingDifficulty}
-                      </div>
-                    </div>
-                    {stop.status === 'PENDING' && (
-                      <button
-                        onClick={() => completeStop(stop.stopId)}
-                        style={{
-                          background: '#001a00',
-                          color: '#1db954',
-                          border: '1px solid #1db954',
-                          padding: '3px 8px',
-                          fontSize: 10,
-                          cursor: 'pointer',
-                          fontFamily: 'inherit',
-                        }}
-                      >
-                        ✓
-                      </button>
-                    )}
-                    {stop.status === 'DELIVERED' && (
-                      <span style={{ color: '#1db954', fontSize: 12 }}>✓</span>
-                    )}
-                  </div>
-                ))}
-            </div>
-          )}
         </aside>
 
-        {/* MAP + STATS */}
-        <main style={S.mapWrapper}>
-          {/* Stats bar */}
-          <div style={S.statsBar}>
-            <StatCard
-              label="Active Routes"
-              value={dashboard?.activeRoutes ?? '—'}
-              icon="🚚"
-              color="#f5c842"
-            />
-            <StatCard
-              label="Deliveries Done"
-              value={dashboard?.completedDeliveries ?? '—'}
-              icon="✅"
-              color="#1db954"
-            />
-            <StatCard
-              label="CO₂ Saved"
-              value={currentRoute?.co2SavedPercent ?? '—'}
-              unit="%"
-              icon="🌿"
-              color="#1db954"
-            />
-            <StatCard
-              label="Trees Equivalent"
-              value={currentRoute?.treesEquivalent ?? '—'}
-              icon="🌳"
-              color="#1db954"
-            />
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', background: '#0c0c0c', borderBottom: '1px solid #151515', flexShrink: 0 }}>
+            <StatCard label="Active Routes" value={stats?.activeRoutes} accent="#e2001a" icon="🚛" />
+            <StatCard label="Deliveries Done" value={stats?.deliveriesDone} accent="#1db954" icon="📦" />
+            <StatCard label="CO₂ Saved" value={stats?.co2SavedPercent} unit="%" accent="#f5c842" icon="🌱" />
+            <StatCard label="Trees Equivalent" value={stats?.treesEquivalent} accent="#1db954" icon="🌳" />
           </div>
-
-          {/* Map */}
-          <div style={{ flex: 1 }}>
-            <RouteMap
-              clients={clients}
-              route={currentRoute ? {
-                stops: currentRoute.stops.map(s => ({
-                  ...s,
-                  latitude:  clients.find(c => c.name === s.clientName)?.latitude,
-                  longitude: clients.find(c => c.name === s.clientName)?.longitude,
-                }))
-              } : null}
-            />
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <RouteMap stops={stops} clients={clients} />
+            {route && <div style={{ position: 'absolute', top: '12px', right: '44px', zIndex: 1000, background: 'rgba(10,10,10,0.88)', backdropFilter: 'blur(10px)', border: '1px solid #222', borderRadius: '7px', padding: '10px 14px', minWidth: '170px' }}><div style={{ fontSize: '8px', color: '#e2001a', fontWeight: '800', letterSpacing: '2px', marginBottom: '6px', textTransform: 'uppercase' }}>● Route Active</div><div style={{ fontSize: '10px', color: '#666', lineHeight: 1.65 }}><div>{stops.length} stops</div><div style={{ color: '#444' }}>{selectedCarrier?.name}</div>{route.totalDistanceKm != null && <div>{route.totalDistanceKm} km</div>}{route.estimatedDuration && <div>~{route.estimatedDuration}</div>}{stops.filter((s) => s.status === 'DELIVERED').length > 0 && <div style={{ color: '#1db954', marginTop: '3px' }}>✓ {stops.filter((s) => s.status === 'DELIVERED').length} delivered</div>}</div></div>}
+            <div style={{ position: 'absolute', bottom: '30px', left: '12px', zIndex: 1000, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(8px)', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '9px 13px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              {[{ color: '#e2001a', shape: 'square', label: 'DDI Mollet (Warehouse)' }, { color: '#f5c842', shape: 'circle', label: 'Pending delivery' }, { color: '#1db954', shape: 'circle', label: 'Delivered' }, { color: '#e2001a', shape: 'line', label: 'Optimised route' }].map(({ color, shape, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '9px', color: '#444', fontFamily: 'monospace' }}>
+                  {shape === 'circle' && <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: color, flexShrink: 0 }} />}
+                  {shape === 'square' && <div style={{ width: '9px', height: '9px', borderRadius: '2px', background: color, flexShrink: 0 }} />}
+                  {shape === 'line' && <div style={{ width: '18px', height: '2px', background: `repeating-linear-gradient(90deg, ${color} 0, ${color} 5px, transparent 5px, transparent 8px)`, flexShrink: 0 }} />}
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </main>
       </div>

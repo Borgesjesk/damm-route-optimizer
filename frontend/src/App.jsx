@@ -114,13 +114,14 @@ export default function App() {
         api.fetchLoadingPlan(routeData.id).catch(() => null),
         api.fetchWarehouseSheet(routeData.id).catch(() => null),
       ]);
-      setLoadingPlan(plan); setWarehouseSheet(sheet); refreshStats();
+      if (plan) { plan.items = (plan.loadingSequence ?? []).map(s => ({ order: s.loadingOrder, clientName: s.clientName, units: s.estimatedVolumeM3 + ' m³', zone: s.truckZone })); }
+          setLoadingPlan(plan); setWarehouseSheet(plan ? { instructions: plan.warehouseInstructions ?? [] } : sheet); refreshStats();
     } catch (err) { setError(err.message); } finally { setGenerating(false); }
   }, [canGenerate, generating, selectedCarrier, selectedClients, refreshStats]);
 
   const handleConfirmDelivery = useCallback(async (stopId) => {
     if (!route) return;
-    try { await api.confirmDelivery(route.id, stopId); const updated = await api.fetchRoute(route.id); setRoute(updated); refreshStats(); } catch (err) { console.error('confirmDelivery failed:', err); }
+    try { await api.confirmDelivery(route.id, stopId); const updated = await api.fetchRoute(route.id); updated.id = updated.routeId ?? updated.id; updated.stops = (updated.stops ?? []).map(s => ({ ...s, id: s.stopId ?? s.id, lat: s.latitude ?? s.lat, lng: s.longitude ?? s.lng })); setRoute(updated); refreshStats(); } catch (err) { console.error('confirmDelivery failed:', err); }
   }, [route, refreshStats]);
 
   const handleDamage = useCallback(async (stopId) => {

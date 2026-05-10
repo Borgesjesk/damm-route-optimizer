@@ -179,3 +179,9 @@ npm start
 ## 📄 License
 
 Built for InterhackBCN 2026 — Damm Challenge.
+
+## Authors
+
+JESSICA BORGES
+EDUARDO MORAGA
+TOMÀS CORCHO

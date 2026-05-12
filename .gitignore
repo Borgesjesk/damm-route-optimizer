@@ -11,4 +11,5 @@ frontend/.env
 *.log
 EOF
 EMERGENCY_CHEATSHEET.md
-GIT_SETUP.sh
+GIT_SETUP.sh__pycache__/
+temp_algo/

@@ -80,8 +80,31 @@ export default function App() {
 
   useEffect(() => {
     api.checkHealth().then((r) => setApiStatus(r.ok ? 'online' : 'offline')).catch(() => setApiStatus('offline'));
-    Promise.all([api.fetchCarriers().catch(() => []), api.fetchClients().catch(() => []), api.fetchDashboardStats().catch(() => null)]).then(([carr, cli, st]) => { setCarriers(carr); setClients(cli); setStats(st); setLoading(false); });
-  }, []);
+        Promise.all([api.fetchCarriers().catch(() => []), api.fetchClients().catch(() => []), api.fetchDashboardStats().catch(() => null)]).then(async ([carr, cli, st]) => {
+          setCarriers(carr); setClients(cli); setStats(st); setLoading(false);
+          // Auto-generate route on load
+          const trustedCarrier = carr.find(c => c.trustLevel === 'TRUSTED') ?? carr[0];
+          const allClientIds = cli.map(c => c.id);
+          if (trustedCarrier && allClientIds.length > 0) {
+            setSelectedCarrier(trustedCarrier);
+            setSelectedClients(allClientIds);
+            try {
+              const res = await api.optimiseRoute(trustedCarrier.id, allClientIds);
+              if (res.ok) {
+                const routeData = await res.json();
+                routeData.id = routeData.routeId;
+                routeData.stops = routeData.stops.map(s => ({ ...s, id: s.stopId, lat: s.latitude, lng: s.longitude }));
+                setRoute(routeData);
+                if (routeData.co2SavedPercent != null) { setCo2Banner(`Route optimised — ${routeData.co2SavedPercent}% less CO₂ vs. naive routing`); } else { setCo2Banner('Route successfully optimised.'); }
+                const [plan] = await Promise.all([api.fetchLoadingPlan(routeData.id).catch(() => null)]);
+                if (plan) { plan.items = (plan.loadingSequence ?? []).map(s => ({ order: s.loadingOrder, clientName: s.clientName, units: s.estimatedVolumeM3 + ' m³', zone: s.truckZone })); }
+                setLoadingPlan(plan); setWarehouseSheet(plan ? { instructions: plan.warehouseInstructions ?? [] } : null);
+              }
+            } catch (e) { console.error('Auto-generate failed:', e); }
+            api.fetchDashboardStats().then(setStats).catch(() => {});
+          }
+        });
+      }, []);
 
   const refreshStats = useCallback(() => { api.fetchDashboardStats().then(setStats).catch(() => {}); }, []);
 

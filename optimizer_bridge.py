@@ -9,20 +9,8 @@ def haversine(lat1, lng1, lat2, lng2):
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-def nearest_neighbor(clients):
-    if not clients:
-        return []
-    unvisited = list(clients)
-    route = [unvisited.pop(0)]
-    while unvisited:
-        last = route[-1]
-        nearest = min(unvisited, key=lambda c: haversine(last['lat'], last['lng'], c['lat'], c['lng']))
-        route.append(nearest)
-        unvisited.remove(nearest)
-    return route
-
 def two_opt(clients):
-    route = nearest_neighbor(clients)
+    route = sorted(clients, key=lambda c: haversine(clients[0]['lat'], clients[0]['lng'], c['lat'], c['lng']))
     improved = True
     while improved:
         improved = False
@@ -35,6 +23,27 @@ def two_opt(clients):
                     improved = True
     return route
 
+def cluster_by_walking_distance(route, max_walk_km=0.3):
+    """Group consecutive stops within 300m walking distance"""
+    clusters = []
+    current_cluster = [route[0]]
+    for i in range(1, len(route)):
+        dist = haversine(current_cluster[0]['lat'], current_cluster[0]['lng'], route[i]['lat'], route[i]['lng'])
+        if dist <= max_walk_km:
+            current_cluster.append(route[i])
+        else:
+            clusters.append(current_cluster)
+            current_cluster = [route[i]]
+    clusters.append(current_cluster)
+    return clusters
+
 data = json.loads(sys.stdin.read())
-result = two_opt(data)
+optimized = two_opt(data)
+clusters = cluster_by_walking_distance(optimized)
+
+# Flatten clusters back to ordered list — keeps nearby clients together
+result = []
+for cluster in clusters:
+    result.extend(cluster)
+
 print(json.dumps([c['id'] for c in result]))

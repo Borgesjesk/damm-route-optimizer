@@ -40,21 +40,14 @@ public class RouteOptimizerService {
     }
 
     private List<Client> callPythonOptimizer(List<Client> clients) throws Exception {
-        StringBuilder json = new StringBuilder("[");
-        for (int i = 0; i < clients.size(); i++) {
-            Client c = clients.get(i);
-            json.append(String.format("{\"id\":%d,\"lat\":%.6f,\"lng\":%.6f,\"name\":\"%s\"}",
-                    c.getId(), c.getLatitude(), c.getLongitude(),
-                    c.getName().replace("\"", "\\\"")));
-            if (i < clients.size() - 1) json.append(",");
-        }
-        json.append("]");
+
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String jsonInput = mapper.writeValueAsString(clients);
 
         ProcessBuilder pb = new ProcessBuilder("python", "optimizer_bridge.py");
         pb.redirectErrorStream(true);
         Process process = pb.start();
-        process.getOutputStream().write(json.toString().getBytes());
-        process.getOutputStream().close();
+
 
         String output = new String(process.getInputStream().readAllBytes()).trim();
         process.waitFor();

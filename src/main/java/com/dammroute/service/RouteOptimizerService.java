@@ -50,7 +50,7 @@ public class RouteOptimizerService {
         }
         json.append("]");
 
-        ProcessBuilder pb = new ProcessBuilder("python3", "optimizer.py");
+        ProcessBuilder pb = new ProcessBuilder("python", "optimizer_bridge.py");
         pb.redirectErrorStream(true);
         Process process = pb.start();
         process.getOutputStream().write(json.toString().getBytes());
